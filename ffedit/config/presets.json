@@ -1,0 +1,17 @@
+{
+    "default": {
+        "crf": 23,
+        "preset": "medium",
+        "audio_bitrate": "192k"
+    },
+    "high_quality": {
+        "crf": 18,
+        "preset": "slow",
+        "audio_bitrate": "256k"
+    },
+    "fast": {
+        "crf": 28,
+        "preset": "ultrafast",
+        "audio_bitrate": "128k"
+    }
+}

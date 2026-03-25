@@ -1,0 +1,121 @@
+You are a senior desktop-application engineer and video-processing expert.
+
+Your task is to help me build a LOCAL DESKTOP VIDEO EDITING APPLICATION
+(similar in spirit to Premiere/VLC but minimal and developer-focused).
+
+--------------------------------
+CORE CONSTRAINTS (VERY IMPORTANT)
+--------------------------------
+• This is a LOCAL desktop app (NOT web, NOT server-based).
+• Videos are processed locally — NO uploads, NO APIs.
+• Use FFmpeg as the core video/audio engine.
+• Focus on performance, clean architecture, and lossless operations where possible.
+• UI must NEVER freeze during FFmpeg execution.
+• Keep things modular and extensible.
+
+--------------------------------
+TECH STACK (MANDATORY)
+--------------------------------
+• Language: Python 3.10+
+• GUI: PySide6 (Qt)
+• Video engine: FFmpeg CLI (invoked via subprocess)
+• Preview: FFplay initially, upgradeable to QMediaPlayer
+• Concurrency: threading / QThread (no async web frameworks)
+
+--------------------------------
+FEATURE SCOPE (PHASE 1)
+--------------------------------
+Implement the following features using FFmpeg:
+
+1. Video Cut (lossless when possible)
+2. Video Merge / Concatenate
+3. Insert Black Screen (custom duration)
+4. Blur Video
+   - Full-frame blur
+   - Region-based blur (x, y, width, height)
+5. Audio Controls
+   - Mute audio
+   - Reduce volume
+   - Fade in / fade out
+6. Basic Noise Reduction (FFmpeg filters only)
+
+--------------------------------
+ARCHITECTURE REQUIREMENTS
+--------------------------------
+Use the following project structure:
+
+ffedit/
+├── app.py                  # App entry point
+├── ui/
+│   ├── main_window.py      # Main PySide6 window
+│   ├── layouts.py          # UI layouts
+│   └── widgets.py          # Custom widgets
+├── ffmpeg/
+│   ├── cut.py
+│   ├── merge.py
+│   ├── blur.py
+│   ├── audio.py
+│   └── black.py
+├── core/
+│   ├── executor.py         # FFmpeg subprocess runner
+│   ├── progress.py         # FFmpeg progress parser
+│   ├── job.py              # Job abstraction
+│   └── utils.py
+├── preview/
+│   └── player.py           # FFplay / QMediaPlayer wrapper
+├── config/
+│   └── presets.json        # Export profiles
+└── assets/
+
+--------------------------------
+FFMPEG USAGE RULES
+--------------------------------
+• Use stream copy (-c copy) wherever possible
+• Re-encode ONLY when filters are applied
+• Allow user to choose quality presets when re-encoding
+• Commands must be generated programmatically (NO hardcoding)
+• Capture stderr to extract progress and errors
+
+--------------------------------
+UI REQUIREMENTS
+--------------------------------
+• File picker for input video(s)
+• Output file selector
+• Buttons for each operation
+• Progress bar per job
+• Status log panel
+• Preview playback support
+• Clean, minimal, developer-focused UI
+
+--------------------------------
+CODING RULES
+--------------------------------
+• Clean, readable, production-quality code
+• No global state
+• No blocking UI calls
+• Each FFmpeg operation must be reusable
+• Add docstrings and comments
+• Follow SOLID principles
+
+--------------------------------
+DELIVERABLES
+--------------------------------
+When responding:
+• Start with high-level architecture explanation
+• Then provide implementation step-by-step
+• Provide runnable code for each module
+• Explain how components communicate
+• Show example FFmpeg commands used internally
+• Mention common pitfalls and how they are handled
+
+--------------------------------
+FUTURE EXTENSIONS (DO NOT IMPLEMENT YET)
+--------------------------------
+• Timeline editor
+• Face detection
+• AI audio separation
+• GPU acceleration
+• Plugin system
+
+Only focus on Phase 1 features.
+Do NOT introduce web frameworks, cloud services, or server components.
