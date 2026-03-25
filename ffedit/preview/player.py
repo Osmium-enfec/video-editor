@@ -139,13 +139,17 @@ class RegionSelector(QObject):
 
 
 class PlayerWidget(QWidget):
+    def set_speed(self, rate: float) -> None:
+        """Set playback speed (rate: 0.5, 1.0, 1.5, 2.0)."""
+        self.media_player.setPlaybackRate(rate)
+
     def __init__(self, main_window=None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.main_window = main_window
         self.media_player = QMediaPlayer(self)
         self.audio_output = QAudioOutput(self)
         self.media_player.setAudioOutput(self.audio_output)
-        self._last_file: Optional[str] = None
+        self._last_file = None
 
         self.video_widget = QVideoWidget(self)
         self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

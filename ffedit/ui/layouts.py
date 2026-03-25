@@ -69,9 +69,13 @@ class MainWindowLayout:
         self.grid.addWidget(options_container, 0, 2, 2, 1)
 
     def _build_controls_row(self):
-        self.play_btn = QPushButton("Play")
-        self.pause_btn = QPushButton("Pause")
-        self.stop_btn = QPushButton("Stop")
+        from PySide6.QtGui import QIcon
+        self.play_btn = QPushButton()
+        self.pause_btn = QPushButton()
+        self.stop_btn = QPushButton()
+        self.play_btn.setIcon(QIcon.fromTheme("media-playback-start"))
+        self.pause_btn.setIcon(QIcon.fromTheme("media-playback-pause"))
+        self.stop_btn.setIcon(QIcon.fromTheme("media-playback-stop"))
         self.select_btn = QPushButton("Select Region")
         self.select_btn.setEnabled(False)
         self.seek_slider = QSlider(Qt.Horizontal)
@@ -80,16 +84,35 @@ class MainWindowLayout:
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(100)
 
+
+        # Speed control dropdown
+        from PySide6.QtWidgets import QComboBox
+        self.speed_combo = QComboBox()
+        self.speed_combo.addItems(["0.5x", "1x", "1.5x", "2x"])
+        self.speed_combo.setCurrentIndex(1)  # Default to 1x
+
+        # Timer label (to be placed above progress bar)
+        self.timer_label = QLabel("00:00:00 / 00:00:00")
+
+        # --- Timer label above seek bar ---
+        # Create a vertical layout for timer label and seek bar
+        from PySide6.QtWidgets import QVBoxLayout
+        self.timer_and_progress = QVBoxLayout()
+        self.timer_and_progress.setSpacing(2)
+        self.timer_and_progress.addWidget(self.timer_label)
+        self.timer_and_progress.addWidget(self.seek_slider)
+
         controls_container = QWidget()
-        controls_layout = QHBoxLayout()
-        controls_layout.addWidget(self.play_btn)
-        controls_layout.addWidget(self.pause_btn)
-        controls_layout.addWidget(self.stop_btn)
-        controls_layout.addWidget(self.select_btn)
-        controls_layout.addWidget(self.seek_slider, stretch=1)
-        controls_layout.addWidget(QLabel("Volume"))
-        controls_layout.addWidget(self.volume_slider)
-        controls_container.setLayout(controls_layout)
+        self.controls_layout = QHBoxLayout()
+        self.controls_layout.addWidget(self.play_btn)
+        self.controls_layout.addWidget(self.pause_btn)
+        self.controls_layout.addWidget(self.stop_btn)
+        self.controls_layout.addWidget(self.select_btn)
+        self.controls_layout.addLayout(self.timer_and_progress, stretch=1)
+        self.controls_layout.addWidget(self.speed_combo)
+        self.controls_layout.addWidget(QLabel("Volume"))
+        self.controls_layout.addWidget(self.volume_slider)
+        controls_container.setLayout(self.controls_layout)
         self.grid.addWidget(controls_container, 2, 0, 1, 2)
 
         self.play_btn.clicked.connect(self.player_widget.resume)
@@ -102,6 +125,28 @@ class MainWindowLayout:
         self.volume_slider.valueChanged.connect(
             lambda value: self.player_widget.set_volume(value / 100.0)
         )
+        # Speed control connection (dropdown)
+        self.speed_combo.currentIndexChanged.connect(self._on_speed_changed)
+
+    def _on_speed_changed(self, idx):
+        rates = [0.5, 1.0, 1.5, 2.0]
+        self.player_widget.set_speed(rates[idx])
+
+        # Timer update connection
+        self.player_widget.media_player.positionChanged.connect(self._update_timer_label)
+        self.player_widget.media_player.durationChanged.connect(self._update_timer_label)
+
+        # (No-op: timer_and_progress is now added directly in controls row)
+
+    def _update_timer_label(self, _value=None):
+        duration = self.player_widget.media_player.duration() // 1000
+        position = self.player_widget.media_player.position() // 1000
+        def fmt(secs):
+            h = secs // 3600
+            m = (secs % 3600) // 60
+            s = secs % 60
+            return f"{h:02}:{m:02}:{s:02}"
+        self.timer_label.setText(f"{fmt(position)} / {fmt(duration)}")
 
     def _seek_video(self, slider_value: int):
         max_value = self.seek_slider.maximum() or 1
