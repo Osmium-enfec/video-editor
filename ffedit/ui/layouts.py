@@ -54,6 +54,7 @@ class MainWindowLayout:
 
         self.top_layout = self.grid
         self._apply_button_styles()
+        self._apply_button_dimensions()
         self.update_responsive_controls(self.main_window.width())
 
     def _build_options_column(self):
@@ -158,14 +159,22 @@ class MainWindowLayout:
 
     def _init_button_styles(self) -> None:
         self._button_styles = {
-            "primary": self._build_button_style("#2563eb", "#1d4ed8", "#1e40af"),
-            "accent": self._build_button_style("#8b5cf6", "#7c3aed", "#6d28d9"),
-            "danger": self._build_button_style("#f97316", "#ea580c", "#c2410c"),
-            "neutral": self._build_button_style("#374151", "#2f3542", "#252932"),
-            "muted": self._build_button_style("#1f2937", "#19212f", "#131924"),
+            "primary": self._build_button_style("#4b5563", "#3f4853", "#323840"),
+            "accent": self._build_button_style("#444c57", "#383f47", "#2a2f36"),
+            "danger": self._build_button_style("#3b424a", "#30363d", "#24282e"),
+            "neutral": self._build_button_style("#353b43", "#2b3036", "#1f2327"),
+            "muted": self._build_button_style("#2b3036", "#25292e", "#1a1d20"),
         }
-        self._play_idle_style = self._build_button_style("#22c55e", "#16a34a", "#15803d")
-        self._play_active_style = self._build_button_style("#f59e0b", "#d97706", "#b45309")
+
+        self._control_button_styles = {
+            "play_idle": self._build_button_style("#22c55e", "#16a34a", "#15803d"),
+            "play_active": self._build_button_style("#f59e0b", "#d97706", "#b45309"),
+            "stop": self._build_button_style("#ef4444", "#dc2626", "#b91c1c"),
+            "mark": self._build_button_style("#8b5cf6", "#7c3aed", "#6d28d9"),
+            "select": self._build_button_style("#1f2937", "#19212f", "#131924"),
+        }
+        self._play_idle_style = self._control_button_styles["play_idle"]
+        self._play_active_style = self._control_button_styles["play_active"]
 
     def _apply_button_styles(self) -> None:
         self.pick_file_btn.setStyleSheet(self._button_styles["primary"])
@@ -174,22 +183,39 @@ class MainWindowLayout:
         self.blur_btn.setStyleSheet(self._button_styles["primary"])
         self.black_btn.setStyleSheet(self._button_styles["muted"])
         self.audio_btn.setStyleSheet(self._button_styles["neutral"])
+
         self.play_btn.setStyleSheet(self._play_idle_style)
-        self.stop_btn.setStyleSheet(self._button_styles["danger"])
-        self.mark_btn.setStyleSheet(self._button_styles["accent"])
-        self.select_btn.setStyleSheet(self._button_styles["muted"])
+        self.stop_btn.setStyleSheet(self._control_button_styles["stop"])
+        self.mark_btn.setStyleSheet(self._control_button_styles["mark"])
+        self.select_btn.setStyleSheet(self._control_button_styles["select"])
+
+    def _apply_button_dimensions(self) -> None:
+        option_buttons = [
+            self.pick_file_btn,
+            self.cut_btn,
+            self.merge_btn,
+            self.blur_btn,
+            self.black_btn,
+            self.audio_btn,
+        ]
+        for btn in option_buttons:
+            btn.setFixedHeight(32)
+
+        control_buttons = [self.play_btn, self.stop_btn, self.mark_btn, self.select_btn]
+        for btn in control_buttons:
+            btn.setFixedHeight(40)
 
     @staticmethod
     def _build_button_style(base: str, hover: str, pressed: str) -> str:
         return (
             "QPushButton {"
             f"background-color: {base};"
-            "color: #f8fafc;"
-            "border: 1px solid rgba(255, 255, 255, 0.08);"
-            "border-radius: 10px;"
-            "padding: 8px 16px;"
-            "font-weight: 600;"
-            "letter-spacing: 0.3px;"
+            "color: #f3f4f6;"
+            "border: 1px solid rgba(255, 255, 255, 0.05);"
+            "border-radius: 6px;"
+            "padding: 4px 10px;"
+            "font-weight: 500;"
+            "font-size: 13px;"
             "min-width: 0;"
             "}"
             "QPushButton:hover {"
@@ -199,9 +225,9 @@ class MainWindowLayout:
             f"background-color: {pressed};"
             "}"
             "QPushButton:disabled {"
-            "background-color: #1c1f29;"
-            "color: #5f6b7c;"
-            "border-color: #1c1f29;"
+            "background-color: #16181d;"
+            "color: #4b5563;"
+            "border-color: #111216;"
             "}"
         )
 
@@ -219,14 +245,17 @@ class MainWindowLayout:
         # (No-op: timer_and_progress is now added directly in controls row)
 
     def _update_timer_label(self, _value=None):
-        duration = self.player_widget.media_player.duration() // 1000
-        position = self.player_widget.media_player.position() // 1000
-        def fmt(secs):
-            h = secs // 3600
-            m = (secs % 3600) // 60
-            s = secs % 60
-            return f"{h:02}:{m:02}:{s:02}"
-        self.timer_label.setText(f"{fmt(position)} / {fmt(duration)}")
+        duration_ms = self.player_widget.media_player.duration()
+        position_ms = self.player_widget.media_player.position()
+
+        def fmt(ms: int) -> str:
+            h = ms // 3_600_000
+            m = (ms % 3_600_000) // 60_000
+            s = (ms % 60_000) // 1000
+            rem_ms = ms % 1000
+            return f"{h:02}:{m:02}:{s:02}.{rem_ms:03}"
+
+        self.timer_label.setText(f"{fmt(position_ms)} / {fmt(duration_ms)}")
 
     def _seek_video(self, slider_value: int):
         max_value = self.seek_slider.maximum() or 1

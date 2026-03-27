@@ -31,6 +31,9 @@ class MainWindow(QMainWindow):
         self.blur_feature = BlurFeature(self)
         self.black_feature = BlackScreenFeature(self)
         self.audio_feature = AudioFeature(self)
+        self.layout.log_panel.append(
+            "Hint: Drag a video into the dark preview area or click Pick Video File."
+        )
 
         # Connect buttons
         self.layout.pick_file_btn.clicked.connect(self.pick_file)

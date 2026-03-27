@@ -8,7 +8,14 @@ from typing import Optional, Tuple
 from PySide6.QtCore import QPoint, QRect, Qt, QUrl, QEvent, QObject
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QRubberBand
+from PySide6.QtWidgets import (
+    QLabel,
+    QStackedLayout,
+    QVBoxLayout,
+    QWidget,
+    QSizePolicy,
+    QRubberBand,
+)
 
 
 class RegionSelector(QObject):
@@ -150,15 +157,52 @@ class PlayerWidget(QWidget):
         self.audio_output = QAudioOutput(self)
         self.media_player.setAudioOutput(self.audio_output)
         self._last_file = None
+        self._drop_enabled = True
 
+        self.setAcceptDrops(True)
         self.video_widget = QVideoWidget(self)
         self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.region_selector = RegionSelector(self.video_widget)
+        self.video_widget.setAcceptDrops(True)
+        self.video_widget.installEventFilter(self)
+
+        self._drop_hint_label = QLabel(
+            "Drag a video into this preview area or use Pick Video File.\n"
+            "Only the first dropped file will be accepted."
+        )
+        self._drop_hint_label.setAlignment(Qt.AlignCenter)
+        self._drop_hint_label.setWordWrap(True)
+        self._drop_hint_label.setStyleSheet(
+            "color: #f0f0f0; background-color: #141414;"
+            "padding: 20px; border: 1px dashed rgba(255, 255, 255, 120);"
+            "font-size: 15px;"
+        )
+        self._drop_hint_label.setAcceptDrops(True)
+        self._drop_hint_label.installEventFilter(self)
+
+        placeholder_layout = QVBoxLayout()
+        placeholder_layout.setContentsMargins(32, 32, 32, 32)
+        placeholder_layout.addStretch()
+        placeholder_layout.addWidget(self._drop_hint_label)
+        placeholder_layout.addStretch()
+
+        self._drop_placeholder = QWidget(self)
+        self._drop_placeholder.setLayout(placeholder_layout)
+        self._drop_placeholder.setStyleSheet("background-color: #000000;")
+        self._drop_placeholder.setAcceptDrops(True)
+        self._drop_placeholder.installEventFilter(self)
+
+        self._stack = QStackedLayout()
+        self._stack.setContentsMargins(0, 0, 0, 0)
+        self._stack.addWidget(self._drop_placeholder)
+        self._stack.addWidget(self.video_widget)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.video_widget)
+        layout.setSpacing(0)
+        layout.addLayout(self._stack)
         self.setLayout(layout)
+        self._set_drop_hint_visible(True)
 
         self.media_player.setVideoOutput(self.video_widget)
 
@@ -169,6 +213,10 @@ class PlayerWidget(QWidget):
         self._last_file = file_path
         self.media_player.setSource(QUrl.fromLocalFile(file_path))
         self.media_player.play()
+        was_enabled = self._drop_enabled
+        self.disable_drag_drop()
+        if was_enabled:
+            self._log("Drag-and-drop disabled after video load.")
 
     def resume(self) -> None:
         if self._last_file:
@@ -380,3 +428,106 @@ class PlayerWidget(QWidget):
         )
         px_msg = f"Video pixels: x={px_region[0]}, y={px_region[1]}, w={px_region[2]}, h={px_region[3]}"
         self._log(f"{ui_msg} | {px_msg}")
+
+    def _set_drop_hint_visible(self, visible: bool) -> None:
+        placeholder = getattr(self, "_drop_placeholder", None)
+        stack = getattr(self, "_stack", None)
+        if not placeholder or not stack:
+            return
+        should_show = visible and self._drop_enabled
+        target = self._drop_placeholder if should_show else self.video_widget
+        stack.setCurrentWidget(target)
+        self._drop_hint_label.setVisible(should_show)
+
+    def eventFilter(self, watched, event):  # type: ignore[override]
+        placeholder = getattr(self, "_drop_placeholder", None)
+        overlay = getattr(self, "_drop_hint_label", None)
+        if watched in (self.video_widget, placeholder, overlay) and event.type() in (
+            QEvent.DragEnter,
+            QEvent.DragMove,
+            QEvent.Drop,
+        ):
+            return self._handle_drag_drop_event(event)
+        return super().eventFilter(watched, event)
+
+    def dragEnterEvent(self, event):  # type: ignore[override]
+        if not self._handle_drag_drop_event(event):
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):  # type: ignore[override]
+        if not self._handle_drag_drop_event(event):
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):  # type: ignore[override]
+        if not self._handle_drag_drop_event(event):
+            super().dropEvent(event)
+
+    def disable_drag_drop(self) -> None:
+        self._drop_enabled = False
+        self._set_drop_hint_visible(False)
+
+    def _handle_drag_drop_event(self, event) -> bool:
+        if event.type() in (QEvent.DragEnter, QEvent.DragMove):
+            if self._can_accept_drag(event):
+                event.setDropAction(Qt.CopyAction)
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+            return True
+        if event.type() == QEvent.Drop:
+            self._handle_drop(event)
+            return True
+        return False
+
+    def _can_accept_drag(self, event) -> bool:
+        if not self._drop_enabled:
+            return False
+        mime_data = getattr(event, "mimeData", lambda: None)()
+        if not mime_data:
+            return False
+        return bool(self._extract_first_video_path(mime_data))
+
+    def _handle_drop(self, event) -> None:
+        if not self._drop_enabled:
+            self._log(
+                "Drag-and-drop works only before a video is loaded. Use Pick Video File after that."
+            )
+            event.ignore()
+            return
+        mime_data = getattr(event, "mimeData", lambda: None)()
+        file_path = self._extract_first_video_path(mime_data) if mime_data else None
+        if not file_path:
+            self._log(
+                "Dropped item is not a supported local video (.mp4, .mov, .avi, .mkv)."
+            )
+            event.ignore()
+            return
+        self._apply_dropped_file(file_path)
+        event.acceptProposedAction()
+
+    def _extract_first_video_path(self, mime_data) -> Optional[str]:
+        urls = mime_data.urls() if hasattr(mime_data, "urls") else []
+        if not urls:
+            return None
+        for url in urls:
+            if url.isLocalFile():
+                path = url.toLocalFile()
+                if self._is_supported_video(path):
+                    return path
+        return None
+
+    @staticmethod
+    def _is_supported_video(path: str) -> bool:
+        valid_ext = {".mp4", ".mov", ".avi", ".mkv"}
+        _, ext = os.path.splitext(path.lower())
+        return ext in valid_ext and os.path.isfile(path)
+
+    def _apply_dropped_file(self, file_path: str) -> None:
+        window, layout = self._resolve_main_window()
+        if not window or not layout:
+            return
+        layout.file_label.setText(file_path)
+        layout.log_panel.append(f"Dropped file: {file_path}")
+        window.input_file = file_path
+        self.play(file_path)
+        layout.log_panel.append("Note: drag-and-drop is now disabled for safety.")
