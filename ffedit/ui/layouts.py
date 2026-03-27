@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QStyle,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -46,11 +47,14 @@ class MainWindowLayout:
 
         self.grid.addWidget(self.player_widget, 0, 0, 2, 2)
 
+        self._init_button_styles()
         self._build_options_column()
         self._build_controls_row()
         self.grid.addWidget(self.log_panel, 2, 2, 1, 1)
 
         self.top_layout = self.grid
+        self._apply_button_styles()
+        self.update_responsive_controls(self.main_window.width())
 
     def _build_options_column(self):
         options_container = QWidget()
@@ -75,6 +79,12 @@ class MainWindowLayout:
         self.stop_btn = QPushButton()
         self.mark_btn = QPushButton("Mark Cut")
         self.mark_btn.setEnabled(False)
+        self.mark_btn.setVisible(False)
+        cut_icon = QIcon.fromTheme("edit-cut")
+        if cut_icon.isNull():
+            cut_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)
+        self.mark_btn.setIcon(cut_icon)
+        self.mark_btn.setIconSize(QSize(18, 18))
         self._play_icon = QIcon.fromTheme("media-playback-start")
         self._pause_icon = QIcon.fromTheme("media-playback-pause")
         self.play_btn.setIcon(self._play_icon)
@@ -146,6 +156,62 @@ class MainWindowLayout:
         # Speed control connection (dropdown)
         self.speed_combo.currentIndexChanged.connect(self._on_speed_changed)
 
+    def _init_button_styles(self) -> None:
+        self._button_styles = {
+            "primary": self._build_button_style("#2563eb", "#1d4ed8", "#1e40af"),
+            "accent": self._build_button_style("#8b5cf6", "#7c3aed", "#6d28d9"),
+            "danger": self._build_button_style("#f97316", "#ea580c", "#c2410c"),
+            "neutral": self._build_button_style("#374151", "#2f3542", "#252932"),
+            "muted": self._build_button_style("#1f2937", "#19212f", "#131924"),
+        }
+        self._play_idle_style = self._build_button_style("#22c55e", "#16a34a", "#15803d")
+        self._play_active_style = self._build_button_style("#f59e0b", "#d97706", "#b45309")
+
+    def _apply_button_styles(self) -> None:
+        self.pick_file_btn.setStyleSheet(self._button_styles["primary"])
+        self.cut_btn.setStyleSheet(self._button_styles["danger"])
+        self.merge_btn.setStyleSheet(self._button_styles["accent"])
+        self.blur_btn.setStyleSheet(self._button_styles["primary"])
+        self.black_btn.setStyleSheet(self._button_styles["muted"])
+        self.audio_btn.setStyleSheet(self._button_styles["neutral"])
+        self.play_btn.setStyleSheet(self._play_idle_style)
+        self.stop_btn.setStyleSheet(self._button_styles["danger"])
+        self.mark_btn.setStyleSheet(self._button_styles["accent"])
+        self.select_btn.setStyleSheet(self._button_styles["muted"])
+
+    @staticmethod
+    def _build_button_style(base: str, hover: str, pressed: str) -> str:
+        return (
+            "QPushButton {"
+            f"background-color: {base};"
+            "color: #f8fafc;"
+            "border: 1px solid rgba(255, 255, 255, 0.08);"
+            "border-radius: 10px;"
+            "padding: 8px 16px;"
+            "font-weight: 600;"
+            "letter-spacing: 0.3px;"
+            "min-width: 0;"
+            "}"
+            "QPushButton:hover {"
+            f"background-color: {hover};"
+            "}"
+            "QPushButton:pressed {"
+            f"background-color: {pressed};"
+            "}"
+            "QPushButton:disabled {"
+            "background-color: #1c1f29;"
+            "color: #5f6b7c;"
+            "border-color: #1c1f29;"
+            "}"
+        )
+
+    def update_responsive_controls(self, width: int) -> None:
+        if width < 900:
+            self.mark_btn.setText("")
+            self.mark_btn.setToolTip("Mark Cut")
+        else:
+            self.mark_btn.setText("Mark Cut")
+
     def _on_speed_changed(self, idx):
         rates = [0.5, 1.0, 1.5, 2.0]
         self.player_widget.set_speed(rates[idx])
@@ -206,8 +272,8 @@ class MainWindowLayout:
         if state == QMediaPlayer.PlaybackState.PlayingState:
             self.play_btn.setIcon(self._pause_icon)
             self.play_btn.setToolTip("Pause")
-            self.play_btn.setStyleSheet("QPushButton { background-color: #f4b400; color: #1a1a1a; }")
+            self.play_btn.setStyleSheet(self._play_active_style)
         else:
             self.play_btn.setIcon(self._play_icon)
             self.play_btn.setToolTip("Play")
-            self.play_btn.setStyleSheet("QPushButton { background-color: #34a853; color: #ffffff; }")
+            self.play_btn.setStyleSheet(self._play_idle_style)

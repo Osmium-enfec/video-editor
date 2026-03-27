@@ -99,6 +99,8 @@ class CutFeature:
         layout = self.main_window.layout
         layout.cut_btn.setText("Complete Cut")
         layout.mark_btn.setEnabled(True)
+        layout.mark_btn.setVisible(True)
+        layout.update_responsive_controls(self.main_window.width())
         layout.log_panel.append(
             "Multiple Cuts mode enabled. Use Mark Cut to add segments before completing."
         )
@@ -269,6 +271,7 @@ class CutFeature:
         layout.cut_btn.setText("Cut Video")
         layout.cut_btn.setEnabled(True)
         layout.mark_btn.setEnabled(False)
+        layout.mark_btn.setVisible(False)
         layout.set_cut_markers([])
 
     def _is_end_after_start(self, start: str, end: str) -> bool:

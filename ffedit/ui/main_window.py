@@ -121,3 +121,8 @@ class MainWindow(QMainWindow):
     def _seek_backward(self) -> None:
         step = self.layout.seek_step_ms()
         self.layout.player_widget.seek_by(-step)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "layout"):
+            self.layout.update_responsive_controls(self.width())
