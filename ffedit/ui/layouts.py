@@ -6,13 +6,14 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
-    QSlider,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
+from PySide6.QtWidgets import QSlider
 
 from ffedit.preview.player import PlayerWidget
+from ffedit.ui.widgets import MarkerSlider
 
 
 class MainWindowLayout:
@@ -71,14 +72,16 @@ class MainWindowLayout:
     def _build_controls_row(self):
         from PySide6.QtGui import QIcon
         self.play_btn = QPushButton()
-        self.pause_btn = QPushButton()
         self.stop_btn = QPushButton()
-        self.play_btn.setIcon(QIcon.fromTheme("media-playback-start"))
-        self.pause_btn.setIcon(QIcon.fromTheme("media-playback-pause"))
+        self.mark_btn = QPushButton("Mark Cut")
+        self.mark_btn.setEnabled(False)
+        self._play_icon = QIcon.fromTheme("media-playback-start")
+        self._pause_icon = QIcon.fromTheme("media-playback-pause")
+        self.play_btn.setIcon(self._play_icon)
         self.stop_btn.setIcon(QIcon.fromTheme("media-playback-stop"))
         self.select_btn = QPushButton("Select Region")
         self.select_btn.setEnabled(False)
-        self.seek_slider = QSlider(Qt.Horizontal)
+        self.seek_slider = MarkerSlider(Qt.Horizontal)
         self.seek_slider.setRange(0, 1000)
         self.volume_slider = QSlider(Qt.Horizontal)
         self.volume_slider.setRange(0, 100)
@@ -91,6 +94,11 @@ class MainWindowLayout:
         self.speed_combo.addItems(["0.5x", "1x", "1.5x", "2x"])
         self.speed_combo.setCurrentIndex(1)  # Default to 1x
 
+        self.skip_combo = QComboBox()
+        for label, millis in (("2s", 2_000), ("5s", 5_000), ("10s", 10_000), ("20s", 20_000), ("50s", 50_000)):
+            self.skip_combo.addItem(label, millis)
+        self.skip_combo.setCurrentIndex(2)
+
         # Timer label (to be placed above progress bar)
         self.timer_label = QLabel("00:00:00 / 00:00:00")
 
@@ -98,30 +106,40 @@ class MainWindowLayout:
         # Create a vertical layout for timer label and seek bar
         from PySide6.QtWidgets import QVBoxLayout
         self.timer_and_progress = QVBoxLayout()
-        self.timer_and_progress.setSpacing(2)
-        self.timer_and_progress.addWidget(self.timer_label)
+        self.timer_and_progress.setSpacing(6)
+        button_row = QHBoxLayout()
+        button_row.setAlignment(Qt.AlignHCenter)
+        button_row.setSpacing(8)
+        button_row.addWidget(self.play_btn)
+        button_row.addWidget(self.stop_btn)
+        button_row.addWidget(self.mark_btn)
+        self.timer_and_progress.addLayout(button_row)
+        self.timer_and_progress.addWidget(self.timer_label, alignment=Qt.AlignHCenter)
         self.timer_and_progress.addWidget(self.seek_slider)
 
         controls_container = QWidget()
         self.controls_layout = QHBoxLayout()
-        self.controls_layout.addWidget(self.play_btn)
-        self.controls_layout.addWidget(self.pause_btn)
-        self.controls_layout.addWidget(self.stop_btn)
         self.controls_layout.addWidget(self.select_btn)
         self.controls_layout.addLayout(self.timer_and_progress, stretch=1)
         self.controls_layout.addWidget(self.speed_combo)
+        self.controls_layout.addWidget(QLabel("Skip"))
+        self.controls_layout.addWidget(self.skip_combo)
         self.controls_layout.addWidget(QLabel("Volume"))
         self.controls_layout.addWidget(self.volume_slider)
         controls_container.setLayout(self.controls_layout)
         self.grid.addWidget(controls_container, 2, 0, 1, 2)
 
-        self.play_btn.clicked.connect(self.player_widget.resume)
-        self.pause_btn.clicked.connect(self.player_widget.pause)
+        self.play_btn.clicked.connect(self.toggle_play_pause)
         self.stop_btn.clicked.connect(self.player_widget.stop)
         self.select_btn.clicked.connect(self.player_widget.confirm_region_selection)
         self.seek_slider.sliderMoved.connect(self._seek_video)
         self.player_widget.media_player.positionChanged.connect(self._sync_seek_slider)
         self.player_widget.media_player.durationChanged.connect(self._sync_seek_slider)
+        self.player_widget.media_player.positionChanged.connect(self._update_timer_label)
+        self.player_widget.media_player.durationChanged.connect(self._update_timer_label)
+        self.player_widget.media_player.playbackStateChanged.connect(self._refresh_play_button)
+        self._refresh_play_button()
+        self._update_timer_label()
         self.volume_slider.valueChanged.connect(
             lambda value: self.player_widget.set_volume(value / 100.0)
         )
@@ -131,10 +149,6 @@ class MainWindowLayout:
     def _on_speed_changed(self, idx):
         rates = [0.5, 1.0, 1.5, 2.0]
         self.player_widget.set_speed(rates[idx])
-
-        # Timer update connection
-        self.player_widget.media_player.positionChanged.connect(self._update_timer_label)
-        self.player_widget.media_player.durationChanged.connect(self._update_timer_label)
 
         # (No-op: timer_and_progress is now added directly in controls row)
 
@@ -164,3 +178,36 @@ class MainWindowLayout:
         else:
             self.seek_slider.setValue(0)
         self.seek_slider.blockSignals(False)
+
+    def seek_step_ms(self) -> int:
+        data = self.skip_combo.currentData()
+        try:
+            return int(data)
+        except (TypeError, ValueError):
+            return 10_000
+
+    def set_cut_markers(self, ratios: list[float]) -> None:
+        """Display cut markers on the seek slider."""
+        self.seek_slider.set_markers(ratios)
+
+    def toggle_play_pause(self) -> None:
+        from PySide6.QtMultimedia import QMediaPlayer
+
+        state = self.player_widget.media_player.playbackState()
+        if state == QMediaPlayer.PlaybackState.PlayingState:
+            self.player_widget.pause()
+        else:
+            self.player_widget.resume()
+
+    def _refresh_play_button(self) -> None:
+        from PySide6.QtMultimedia import QMediaPlayer
+
+        state = self.player_widget.media_player.playbackState()
+        if state == QMediaPlayer.PlaybackState.PlayingState:
+            self.play_btn.setIcon(self._pause_icon)
+            self.play_btn.setToolTip("Pause")
+            self.play_btn.setStyleSheet("QPushButton { background-color: #f4b400; color: #1a1a1a; }")
+        else:
+            self.play_btn.setIcon(self._play_icon)
+            self.play_btn.setToolTip("Play")
+            self.play_btn.setStyleSheet("QPushButton { background-color: #34a853; color: #ffffff; }")

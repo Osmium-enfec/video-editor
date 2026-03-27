@@ -186,6 +186,15 @@ class PlayerWidget(QWidget):
             ratio = max(0.0, min(1.0, ratio))
             self.media_player.setPosition(int(duration * ratio))
 
+    def seek_by(self, delta_ms: int) -> None:
+        """Seek relative to the current position, clamped within media bounds."""
+        duration = self.media_player.duration()
+        if duration <= 0:
+            return
+        new_position = self.media_player.position() + delta_ms
+        new_position = max(0, min(new_position, duration))
+        self.media_player.setPosition(new_position)
+
     def set_volume(self, value: float) -> None:
         self.audio_output.setVolume(max(0.0, min(1.0, value)))
 
