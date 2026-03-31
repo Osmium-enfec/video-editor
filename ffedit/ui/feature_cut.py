@@ -44,6 +44,12 @@ class CutFeature:
         else:
             self._start_multi_mode()
 
+    def reset_for_new_video(self) -> None:
+        """Clear any multi-cut state when the active video is removed."""
+
+        self.archived_segments = []
+        self._reset_multi_state()
+
     def start_single_cut_shortcut(self) -> None:
         if not self.main_window.input_file:
             self.main_window.layout.log_panel.append(

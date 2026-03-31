@@ -228,6 +228,16 @@ class PlayerWidget(QWidget):
     def stop(self) -> None:
         self.media_player.stop()
 
+    def reset_to_initial_state(self) -> None:
+        self.stop()
+        self.media_player.setSource(QUrl())
+        self._last_file = None
+        self._drop_enabled = True
+        self.region_selector.stop_selection()
+        self._set_select_button_enabled(False)
+        self._set_drop_hint_visible(True)
+        self._log("Ready for a new video. Drag-and-drop enabled again.")
+
     def seek_to_ratio(self, ratio: float) -> None:
         duration = self.media_player.duration()
         if duration > 0:

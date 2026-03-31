@@ -27,6 +27,7 @@ class MainWindowLayout:
         self.player_widget.set_main_window(main_window)
         self.file_label = QLabel("No file selected")
         self.pick_file_btn = QPushButton("Pick Video File")
+        self.add_video_btn = QPushButton("Add Video")
         self.cut_btn = QPushButton("Cut Video")
         self.merge_btn = QPushButton("Merge Videos")
         self.blur_btn = QPushButton("Blur Video")
@@ -66,6 +67,7 @@ class MainWindowLayout:
         options_layout.setAlignment(Qt.AlignTop)
         options_layout.addWidget(self.file_label)
         options_layout.addWidget(self.pick_file_btn)
+        options_layout.addWidget(self.add_video_btn)
         options_layout.addWidget(self.cut_btn)
         options_layout.addWidget(self.merge_btn)
         options_layout.addWidget(self.blur_btn)
@@ -184,6 +186,7 @@ class MainWindowLayout:
 
     def _apply_button_styles(self) -> None:
         self.pick_file_btn.setStyleSheet(self._button_styles["primary"])
+        self.add_video_btn.setStyleSheet(self._button_styles["primary"])
         self.cut_btn.setStyleSheet(self._button_styles["danger"])
         self.merge_btn.setStyleSheet(self._button_styles["accent"])
         self.blur_btn.setStyleSheet(self._button_styles["primary"])
@@ -198,6 +201,7 @@ class MainWindowLayout:
     def _apply_button_dimensions(self) -> None:
         option_buttons = [
             self.pick_file_btn,
+            self.add_video_btn,
             self.cut_btn,
             self.merge_btn,
             self.blur_btn,

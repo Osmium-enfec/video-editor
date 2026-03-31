@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
 
         # Connect buttons
         self.layout.pick_file_btn.clicked.connect(self.pick_file)
+        self.layout.add_video_btn.clicked.connect(self._reset_video_state)
         self.layout.cut_btn.clicked.connect(self.cut_feature.cut_video)
         self.layout.mark_btn.clicked.connect(self.cut_feature.add_multi_cut_segment)
         self.layout.merge_btn.clicked.connect(self.merge_feature.merge_videos)
@@ -99,6 +100,17 @@ class MainWindow(QMainWindow):
                 self.layout.log_panel.append(f"Selected file: {file}")
                 self.input_file = file
                 self.layout.player_widget.play(file)
+
+    def _reset_video_state(self) -> None:
+        had_file = bool(self.input_file)
+        self.layout.player_widget.reset_to_initial_state()
+        self.input_file = None
+        self.layout.file_label.setText("No file selected")
+        self.layout.seek_slider.setValue(0)
+        self.layout.set_cut_markers([], [])
+        self.cut_feature.reset_for_new_video()
+        message = "Video cleared. Ready to add a new file." if had_file else "Ready to add a video."
+        self.layout.log_panel.append(message)
 
     # Cut feature logic moved to feature_cut.py
 
