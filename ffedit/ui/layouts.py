@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QProgressBar,
     QPushButton,
@@ -14,7 +17,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtWidgets import QSlider
 
 from ffedit.preview.player import PlayerWidget
-from ffedit.ui.widgets import MarkerSlider
+from ffedit.ui.widgets import ClickableLabel, MarkerSlider
 
 
 class MainWindowLayout:
@@ -111,7 +114,10 @@ class MainWindowLayout:
         self.skip_combo.setCurrentIndex(2)
 
         # Timer label (to be placed above progress bar)
-        self.timer_label = QLabel("00:00:00 / 00:00:00")
+        self.timer_label = ClickableLabel("00:00:00.000 / 00:00:00.000")
+        self.timer_label.setCursor(Qt.PointingHandCursor)
+        self.timer_label.setToolTip("Click to jump to a specific time")
+        self.timer_label.clicked.connect(self._prompt_seek_to_time)
 
         # --- Timer label above seek bar ---
         # Create a vertical layout for timer label and seek bar
@@ -247,15 +253,9 @@ class MainWindowLayout:
     def _update_timer_label(self, _value=None):
         duration_ms = self.player_widget.media_player.duration()
         position_ms = self.player_widget.media_player.position()
-
-        def fmt(ms: int) -> str:
-            h = ms // 3_600_000
-            m = (ms % 3_600_000) // 60_000
-            s = (ms % 60_000) // 1000
-            rem_ms = ms % 1000
-            return f"{h:02}:{m:02}:{s:02}.{rem_ms:03}"
-
-        self.timer_label.setText(f"{fmt(position_ms)} / {fmt(duration_ms)}")
+        self.timer_label.setText(
+            f"{self._format_timestamp(position_ms)} / {self._format_timestamp(duration_ms)}"
+        )
 
     def _seek_video(self, slider_value: int):
         max_value = self.seek_slider.maximum() or 1
@@ -281,9 +281,31 @@ class MainWindowLayout:
         except (TypeError, ValueError):
             return 10_000
 
-    def set_cut_markers(self, ratios: list[float]) -> None:
-        """Display cut markers on the seek slider."""
-        self.seek_slider.set_markers(ratios)
+    def set_cut_markers(
+        self,
+        active: list[float],
+        archived: list[float] | None = None,
+    ) -> None:
+        """Display cut markers with separate colors for active vs archived segments."""
+
+        marker_payload = []
+        for ratio in archived or []:
+            marker_payload.append(
+                {
+                    "ratio": ratio,
+                    "color": "#22c55e",
+                    "removable": False,
+                }
+            )
+        for ratio in active:
+            marker_payload.append(
+                {
+                    "ratio": ratio,
+                    "color": "#ff3b30",
+                    "removable": True,
+                }
+            )
+        self.seek_slider.set_markers(marker_payload)
 
     def toggle_play_pause(self) -> None:
         from PySide6.QtMultimedia import QMediaPlayer
@@ -306,3 +328,70 @@ class MainWindowLayout:
             self.play_btn.setIcon(self._play_icon)
             self.play_btn.setToolTip("Play")
             self.play_btn.setStyleSheet(self._play_idle_style)
+
+    def _prompt_seek_to_time(self) -> None:
+        duration_ms = self.player_widget.media_player.duration()
+        if duration_ms <= 0:
+            self.log_panel.append("Load a video before jumping to a specific time.")
+            return
+
+        current_text = self._format_timestamp(self.player_widget.media_player.position())
+        text, ok = QInputDialog.getText(
+            self.main_window,
+            "Go To Time",
+            "Enter a time (seconds or hh:mm:ss:cc / hh:mm:ss.mmm):",
+            text=current_text,
+        )
+        if not ok:
+            return
+        value = text.strip()
+        if not value:
+            return
+
+        try:
+            target_ms = self._parse_time_input(value)
+        except ValueError:
+            self.log_panel.append(
+                "Invalid time. Use seconds or hh:mm:ss with optional milliseconds/frames."
+            )
+            return
+
+        clamped = max(0, min(target_ms, duration_ms))
+        self.player_widget.media_player.setPosition(clamped)
+        self._update_timer_label()
+
+    @staticmethod
+    def _format_timestamp(ms: int) -> str:
+        ms = max(0, int(ms or 0))
+        h = ms // 3_600_000
+        m = (ms % 3_600_000) // 60_000
+        s = (ms % 60_000) // 1000
+        rem_ms = ms % 1000
+        return f"{h:02}:{m:02}:{s:02}.{rem_ms:03}"
+
+    @staticmethod
+    def _parse_time_input(text: str) -> int:
+        stripped = (text or "").strip()
+        if not stripped:
+            raise ValueError("empty time value")
+        try:
+            if ":" not in stripped:
+                seconds = float(stripped)
+            else:
+                parts = stripped.split(":")
+                if len(parts) == 4:
+                    hours = float(parts[0])
+                    minutes = float(parts[1])
+                    seconds_part = float(parts[2])
+                    fraction = parts[3]
+                    frac_seconds = float(fraction) / (10 ** len(fraction)) if fraction else 0.0
+                    seconds = hours * 3600 + minutes * 60 + seconds_part + frac_seconds
+                else:
+                    float_parts = [float(part) for part in parts]
+                    while len(float_parts) < 3:
+                        float_parts.insert(0, 0.0)
+                    hours, minutes, seconds_part = float_parts[-3:]
+                    seconds = hours * 3600 + minutes * 60 + seconds_part
+        except ValueError as exc:
+            raise ValueError("invalid time format") from exc
+        return int(max(0.0, seconds) * 1000)

@@ -20,7 +20,6 @@ class MainWindow(QMainWindow):
         central = QWidget()
         central.setLayout(self.layout.top_layout)
         self.setCentralWidget(central)
-        self._setup_shortcuts()
 
         self.input_file = None
         self.executor = None
@@ -31,6 +30,8 @@ class MainWindow(QMainWindow):
         self.blur_feature = BlurFeature(self)
         self.black_feature = BlackScreenFeature(self)
         self.audio_feature = AudioFeature(self)
+
+        self._setup_shortcuts()
         self.layout.log_panel.append(
             "Hint: Drag a video into the dark preview area or click Pick Video File."
         )
@@ -109,13 +110,21 @@ class MainWindow(QMainWindow):
             self.layout.log_panel.append(f"Cut failed: {msg}")
 
     def _setup_shortcuts(self) -> None:
-        """Bind navigation keys (arrows + space) to playback controls."""
+        """Bind navigation and editing shortcuts to player and cut actions."""
         self._forward_shortcut = QShortcut(QKeySequence(Qt.Key_Right), self)
         self._forward_shortcut.activated.connect(self._seek_forward)
         self._backward_shortcut = QShortcut(QKeySequence(Qt.Key_Left), self)
         self._backward_shortcut.activated.connect(self._seek_backward)
         self._space_shortcut = QShortcut(QKeySequence(Qt.Key_Space), self)
         self._space_shortcut.activated.connect(self.layout.toggle_play_pause)
+        self._single_cut_shortcut = QShortcut(QKeySequence(Qt.Key_C), self)
+        self._single_cut_shortcut.activated.connect(self.cut_feature.start_single_cut_shortcut)
+        self._multi_cut_shortcut = QShortcut(QKeySequence(Qt.Key_M), self)
+        self._multi_cut_shortcut.activated.connect(self.cut_feature.start_multiple_cut_shortcut)
+        self._apply_cut_shortcut = QShortcut(QKeySequence(Qt.Key_B), self)
+        self._apply_cut_shortcut.activated.connect(
+            self.cut_feature.apply_current_time_cut_shortcut
+        )
 
     def _seek_forward(self) -> None:
         step = self.layout.seek_step_ms()
