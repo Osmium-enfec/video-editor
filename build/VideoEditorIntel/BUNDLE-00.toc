@@ -1,0 +1,3 @@
+([('VideoEditorIntel',
+   '/Users/enfecsolutions/Documents/GIthub_Repo/video-editor/dist/VideoEditorIntel',
+   'EXECUTABLE')],)
