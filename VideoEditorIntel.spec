@@ -5,7 +5,7 @@ a = Analysis(
     ['ffedit/app.py'],
     pathex=[],
     binaries=[],
-    datas=[('ffedit/config/presets.json', 'ffedit/config')],
+    datas=[('ffedit/config/presets.json', 'ffedit/config'), ('third_party/ffmpeg/macos', 'ffmpeg')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

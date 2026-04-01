@@ -5,7 +5,7 @@ a = Analysis(
     ['ffedit/app.py'],
     pathex=[],
     binaries=[],
-    datas=[('ffedit/config/presets.json', 'ffedit/config'), ('third_party/ffmpeg/macos', 'ffmpeg')],
+    datas=[('ffedit/config/presets.json', 'ffedit/config'), ('third_party/ffmpeg/windows', 'ffmpeg')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='VideoEditor',
+    name='VideoEditorWindows',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,10 +35,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-app = BUNDLE(
-    exe,
-    name='VideoEditor.app',
-    icon=None,
-    bundle_identifier=None,
 )

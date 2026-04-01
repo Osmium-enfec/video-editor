@@ -36,6 +36,9 @@ class MainWindow(QMainWindow):
             "Hint: Drag a video into the dark preview area or click Pick Video File."
         )
 
+        # Initialize ffmpeg status indicator
+        self.set_ffmpeg_status(None)
+
         # Connect buttons
         self.layout.pick_file_btn.clicked.connect(self.pick_file)
         self.layout.add_video_btn.clicked.connect(self._reset_video_state)
@@ -137,6 +140,38 @@ class MainWindow(QMainWindow):
         self._apply_cut_shortcut.activated.connect(
             self.cut_feature.apply_current_time_cut_shortcut
         )
+
+    def set_ffmpeg_status(self, path: str | None) -> None:
+        """Update the ffmpeg availability status in the UI.
+
+        If `path` is truthy, show it as available; otherwise indicate missing.
+        """
+        label = getattr(self.layout, "ffmpeg_status", None)
+        icon_label = getattr(self.layout, "ffmpeg_icon", None)
+        if label is None:
+            return
+        if path:
+            label.setText(f"ffmpeg: available")
+            label.setStyleSheet("color: #22c55e;")
+            label.setToolTip(f"ffmpeg available at: {path}")
+            self.layout.log_panel.append(f"ffmpeg available at: {path}")
+            if icon_label is not None:
+                from PySide6.QtGui import QIcon
+                icon = QIcon.fromTheme("emblem-default")
+                if icon.isNull():
+                    icon = self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton)
+                icon_label.setPixmap(icon.pixmap(16, 16))
+        else:
+            label.setText("ffmpeg: not found")
+            label.setStyleSheet("color: #ef4444;")
+            label.setToolTip("ffmpeg not found; download/install to enable all features")
+            self.layout.log_panel.append("ffmpeg not found; some features may be limited.")
+            if icon_label is not None:
+                from PySide6.QtGui import QIcon
+                icon = QIcon.fromTheme("dialog-error")
+                if icon.isNull():
+                    icon = self.style().standardIcon(self.style().StandardPixmap.SP_MessageBoxCritical)
+                icon_label.setPixmap(icon.pixmap(16, 16))
 
     def _seek_forward(self) -> None:
         step = self.layout.seek_step_ms()

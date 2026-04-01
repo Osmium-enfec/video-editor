@@ -4,6 +4,8 @@ Runs FFmpeg commands in a separate thread and captures progress."""
 import shutil
 import subprocess
 from PySide6.QtCore import QThread, Signal
+from ffedit.ffmpeg.installer import get_ffmpeg_path
+from ffedit.ffmpeg.installer import get_ffmpeg_path
 
 class FFmpegExecutor(QThread):
     progress = Signal(float)
@@ -14,10 +16,21 @@ class FFmpegExecutor(QThread):
         super().__init__()
         self.cmd = cmd
         self._process = None
+        # Resolve ffmpeg binary if present in config, env, system or bundled locations.
+        binary = self.cmd[0] if self.cmd else "ffmpeg"
+        resolved = get_ffmpeg_path(binary)
+        if resolved:
+            self.cmd[0] = resolved
 
     def run(self):
         binary = self.cmd[0] if self.cmd else "ffmpeg"
-        if not shutil.which(binary):
+        # Resolve an available ffmpeg binary (system, bundled or user-downloaded)
+        resolved = get_ffmpeg_path(binary)
+        if resolved:
+            # Update command to use absolute binary path
+            self.cmd[0] = resolved
+            binary = resolved
+        else:
             self.log.emit(f"Cannot run '{binary}': binary not found. Please install ffmpeg and ensure it is on PATH.")
             self.finished.emit(1, f"{binary} not found")
             return
